@@ -92,7 +92,7 @@ class LogicSolver:
 class IntervalChart(QWidget):
     def __init__(self):
         super().__init__()
-        self.setMinimumHeight(350)
+        self.setMinimumHeight(400)  # Увеличил высоту для результата
         self.intervals = []
         self.result_interval = None
         self.bg_color = QColor(250, 250, 252)
@@ -124,7 +124,7 @@ class IntervalChart(QWidget):
         w = self.width()
         h = self.height()
         margin = 50
-        axis_y = h - 70
+        axis_y = h - 100  # Опустил ось ниже для результата
 
         # Collect all values for scaling
         all_vals = [0, 50]  # Default values
@@ -188,23 +188,13 @@ class IntervalChart(QWidget):
             x2_clipped = min(x2, w - margin)
             
             width_bar = x2_clipped - x1_clipped
-            if width_bar < 3 and abs(x2 - x1) > 0.1:  # Если реальный отрезок есть, но на экране маленький
-                width_bar = 3
-                x1_clipped = max((x1 + x2) / 2 - 1.5, margin)
-                x2_clipped = x1_clipped + 3
             
-            if width_bar <= 0:  # Если совсем не видно
-                # Рисуем маркер в центре
-                center_x = (x1 + x2) / 2
-                if margin <= center_x <= w - margin:
-                    painter.setPen(QPen(color if not is_result else QColor(231, 76, 60), 3))
-                    painter.drawLine(int(center_x), int(y_pos), int(center_x), int(y_pos + 28))
-                
-                # Подпись
-                painter.setPen(QPen(Qt.GlobalColor.black if not is_result else Qt.GlobalColor.white, 1))
-                label_text = f"{label} [{interval.start:.1f}, {interval.end:.1f}]"
-                painter.drawText(int(center_x - 50), int(y_pos - 5), label_text)
-                return
+            # Если отрезок очень узкий, увеличиваем для видимости
+            if width_bar < 10 and abs(x2 - x1) > 0.1:
+                center = (x1_clipped + x2_clipped) / 2
+                x1_clipped = max(center - 5, margin)
+                x2_clipped = min(center + 5, w - margin)
+                width_bar = x2_clipped - x1_clipped
             
             height_bar = 28
             
@@ -236,27 +226,62 @@ class IntervalChart(QWidget):
             
             painter.drawRoundedRect(rect, 8, 8)
             
-            # Draw label with interval values
-            painter.setPen(QPen(Qt.GlobalColor.white if is_result else Qt.GlobalColor.black, 1))
-            font = QFont("Segoe UI", 10)
+            # Для результата ВСЕГДА показываем координаты над отрезком
             if is_result:
-                font.setBold(True)
-            painter.setFont(font)
-            
-            label_text = f"{label} [{interval.start:.1f}, {interval.end:.1f}]"
-            text_width = painter.fontMetrics().horizontalAdvance(label_text)
-            
-            if text_width < width_bar - 10:
-                painter.drawText(int(x1_clipped + 10), int(y_pos + height_bar/2 + 4), label_text)
-            elif width_bar > 30:  # Если есть место хотя бы для части текста
-                painter.drawText(int(x1_clipped + 5), int(y_pos + height_bar/2 + 4), "...")
-            
-            # Для результата дополнительно показываем длину
-            if is_result:
+                # Координаты отрезка
+                coord_text = f"[{interval.start:.1f}, {interval.end:.1f}]"
+                
+                # Определяем, где рисовать текст
+                text_width = painter.fontMetrics().horizontalAdvance(coord_text)
+                
+                if width_bar > text_width + 20:
+                    # Если ширина достаточная, рисуем внутри отрезка
+                    painter.setPen(QPen(Qt.GlobalColor.white, 1))
+                    font = QFont("Segoe UI", 10, QFont.Weight.Bold)
+                    painter.setFont(font)
+                    painter.drawText(int(x1_clipped + (width_bar - text_width) / 2), 
+                                   int(y_pos + height_bar/2 + 4), coord_text)
+                else:
+                    # Если не помещается внутри, рисуем над отрезком
+                    painter.setPen(QPen(QColor(231, 76, 60), 1))
+                    font = QFont("Segoe UI", 10, QFont.Weight.Bold)
+                    painter.setFont(font)
+                    
+                    # Рисуем стрелку к отрезку
+                    center_x = x1_clipped + width_bar / 2
+                    painter.drawLine(int(center_x), int(y_pos - 10), 
+                                   int(center_x), int(y_pos))
+                    
+                    # Рисуем текст над отрезком
+                    painter.drawText(int(center_x - text_width/2), 
+                                   int(y_pos - 15), coord_text)
+                
+                # Название отрезка рисуем под ним
+                name_text = f"{label}"
+                name_width = painter.fontMetrics().horizontalAdvance(name_text)
+                painter.setPen(QPen(QColor(100, 100, 100), 1))
+                painter.drawText(int(x1_clipped + (width_bar - name_width) / 2),
+                               int(y_pos + height_bar + 20), name_text)
+                
+                # Длину отрезка
                 length = interval.end - interval.start
                 length_text = f"Длина: {length:.1f}"
+                painter.drawText(int(x1_clipped + (width_bar - painter.fontMetrics().horizontalAdvance(length_text)) / 2),
+                               int(y_pos + height_bar + 40), length_text)
+            else:
+                # Для обычных интервалов
+                label_text = f"{label} [{interval.start:.1f}, {interval.end:.1f}]"
+                text_width = painter.fontMetrics().horizontalAdvance(label_text)
+                
+                painter.setPen(QPen(Qt.GlobalColor.black, 1))
+                font = QFont("Segoe UI", 10)
+                painter.setFont(font)
+                
                 if text_width < width_bar - 10:
-                    painter.drawText(int(x1_clipped + 10), int(y_pos + height_bar + 20), length_text)
+                    painter.drawText(int(x1_clipped + 10), int(y_pos + height_bar/2 + 4), label_text)
+                elif width_bar > 30:
+                    short_text = f"{label}..."
+                    painter.drawText(int(x1_clipped + 5), int(y_pos + height_bar/2 + 4), short_text)
 
         # Draw intervals
         y_offset = axis_y - 45
@@ -273,12 +298,23 @@ class IntervalChart(QWidget):
             draw_interval_bar(interval, y_offset, color, interval.name)
             y_offset -= 40
 
-        # Draw result interval
+        # Draw result interval на отдельной линии НИЖЕ всех
         if self.result_interval:
-            print(f"DEBUG: Drawing result interval at y={y_offset - 20}")
-            print(f"DEBUG: Result values: start={self.result_interval.start}, end={self.result_interval.end}")
-            draw_interval_bar(self.result_interval, y_offset - 20, 
-                            QColor(231, 76, 60), "Результат A", is_result=True)
+            # Выделяем отдельную линию для результата (гораздо ниже)
+            result_y = axis_y - 150  # Фиксированная позиция для результата
+            
+            # Рисуем разделительную линию
+            painter.setPen(QPen(QColor(200, 200, 200), 1, Qt.PenStyle.DashLine))
+            painter.drawLine(margin, result_y - 30, w - margin, result_y - 30)
+            
+            # Подпись для результата
+            painter.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+            painter.setPen(QPen(QColor(231, 76, 60)))
+            painter.drawText(margin, result_y - 40, "РЕЗУЛЬТАТ:")
+            
+            # Рисуем сам результат
+            draw_interval_bar(self.result_interval, result_y, 
+                            QColor(231, 76, 60), "Отрезок A", is_result=True)
         else:
             painter.setFont(QFont("Segoe UI", 12))
             painter.setPen(QPen(QColor(100, 100, 120)))
@@ -353,7 +389,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("📊 Logic Interval Solver")
-        self.resize(1100, 750)
+        self.resize(1100, 800)  # Увеличил высоту окна
         self.setStyleSheet("""
             QMainWindow {
                 background-color: #f8f9fa;
