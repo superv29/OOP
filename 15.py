@@ -1,10 +1,10 @@
 import sys
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                              QHBoxLayout, QLabel, QLineEdit, QPushButton, 
-                             QTableWidget, QTableWidgetItem, QComboBox, QMessageBox, 
-                             QHeaderView, QFrame, QGroupBox, QSizePolicy)
+                             QTableWidget, QTableWidgetItem, QComboBox, QMessageBox, QHeaderView, QGroupBox, QFrame)
 from PySide6.QtGui import QPainter, QPen, QColor, QBrush, QFont, QLinearGradient
 from PySide6.QtCore import Qt, QRectF, QPropertyAnimation, QEasingCurve
+
 
 class Interval:
     def __init__(self, name, start, end):
@@ -16,7 +16,7 @@ class Interval:
         return self.start <= item <= self.end
 
     def __repr__(self):
-        return f"{self.name}: [{self.start}, {self.end}]"
+        return f"{self.name}: [{self.start:.2f}, {self.end:.2f}]"
 
 
 class LogicSolver:
@@ -43,28 +43,51 @@ class LogicSolver:
             raise ValueError(f"Ошибка в формуле: {e}")
 
     def solve(self, mode="min", target_value=True):
-        points_in_a = []
+        # Собираем непрерывные отрезки
         current = self.search_range[0]
+        segments = []  # список отрезков [start, end]
+        current_segment_start = None
         
         while current <= self.search_range[1]:
             res_without_a = self.check_expression(current, False)
             res_with_a = self.check_expression(current, True)
             
+            condition_met = False
             if mode == "min":
-                if res_without_a != target_value:
-                    points_in_a.append(current)
-            
+                # Для минимального A: выражение без A != target_value
+                condition_met = (res_without_a != target_value)
             elif mode == "max":
-                if res_with_a == target_value:
-                    points_in_a.append(current)
-
+                # Для максимального A: выражение с A == target_value
+                condition_met = (res_with_a == target_value)
+            
+            if condition_met:
+                if current_segment_start is None:
+                    # Начало нового отрезка
+                    current_segment_start = current
+            else:
+                if current_segment_start is not None:
+                    # Конец отрезка
+                    segments.append((current_segment_start, current - self.step))
+                    current_segment_start = None
+            
             current += self.step
-            current = round(current, 1)
-
-        if not points_in_a:
+            current = round(current, 2)
+        
+        # Проверяем последний отрезок
+        if current_segment_start is not None:
+            segments.append((current_segment_start, min(current - self.step, self.search_range[1])))
+        
+        if not segments:
             return None
         
-        return Interval("A (Result)", min(points_in_a), max(points_in_a))
+        # В зависимости от режима выбираем нужный отрезок
+        if mode == "min":
+            # Для минимального A берем самый левый отрезок
+            return Interval("A (Result)", segments[0][0], segments[0][1])
+        elif mode == "max":
+            # Для максимального A берем самый правый отрезок
+            return Interval("A (Result)", segments[-1][0], segments[-1][1])
+
 
 class IntervalChart(QWidget):
     def __init__(self):
@@ -80,6 +103,7 @@ class IntervalChart(QWidget):
     def update_data(self, intervals, result):
         self.intervals = intervals
         self.result_interval = result
+        print(f"DEBUG: Updated chart with {len(intervals)} intervals and result: {result}")
         self.update()
 
     def paintEvent(self, event):
@@ -102,9 +126,8 @@ class IntervalChart(QWidget):
         margin = 50
         axis_y = h - 70
 
-        # Draw grid lines
-        painter.setPen(QPen(self.grid_color, 1, Qt.PenStyle.DashLine))
-        all_vals = [0, 50]
+        # Collect all values for scaling
+        all_vals = [0, 50]  # Default values
         for i in self.intervals:
             all_vals.extend([i.start, i.end])
         if self.result_interval:
@@ -112,18 +135,22 @@ class IntervalChart(QWidget):
         
         min_val = min(all_vals)
         max_val = max(all_vals)
-        if max_val == min_val: max_val += 10
+        if max_val == min_val: 
+            max_val += 10
         scale_len = max_val - min_val
-        if scale_len == 0: scale_len = 10
+        if scale_len == 0: 
+            scale_len = 10
         
         px_per_unit = (w - 2 * margin) / scale_len
 
         def val_to_x(val):
             return margin + (val - min_val) * px_per_unit
 
-        # Draw vertical grid lines
+        # Draw grid lines
+        painter.setPen(QPen(self.grid_color, 1, Qt.PenStyle.DashLine))
         step_grid = 10 if scale_len > 50 else 5
-        if scale_len < 20: step_grid = 1
+        if scale_len < 20: 
+            step_grid = 1
         
         current_grid = int(min_val)
         while current_grid <= int(max_val) + 1:
@@ -155,31 +182,44 @@ class IntervalChart(QWidget):
             x1 = val_to_x(interval.start)
             x2 = val_to_x(interval.end)
             
-            if x2 < margin or x1 > w - margin: 
+            # Всегда рисуем, даже если частично за пределами
+            # Просто обрезаем координаты
+            x1_clipped = max(x1, margin)
+            x2_clipped = min(x2, w - margin)
+            
+            width_bar = x2_clipped - x1_clipped
+            if width_bar < 3 and abs(x2 - x1) > 0.1:  # Если реальный отрезок есть, но на экране маленький
+                width_bar = 3
+                x1_clipped = max((x1 + x2) / 2 - 1.5, margin)
+                x2_clipped = x1_clipped + 3
+            
+            if width_bar <= 0:  # Если совсем не видно
+                # Рисуем маркер в центре
+                center_x = (x1 + x2) / 2
+                if margin <= center_x <= w - margin:
+                    painter.setPen(QPen(color if not is_result else QColor(231, 76, 60), 3))
+                    painter.drawLine(int(center_x), int(y_pos), int(center_x), int(y_pos + 28))
+                
+                # Подпись
+                painter.setPen(QPen(Qt.GlobalColor.black if not is_result else Qt.GlobalColor.white, 1))
+                label_text = f"{label} [{interval.start:.1f}, {interval.end:.1f}]"
+                painter.drawText(int(center_x - 50), int(y_pos - 5), label_text)
                 return
             
-            x1 = max(x1, margin)
-            x2 = min(x2, w - margin)
-            
-            width_bar = x2 - x1
-            if width_bar < 3:
-                width_bar = 3
-                x1 -= 1.5
-                
             height_bar = 28
             
             # Draw shadow for result
             if is_result:
-                shadow_rect = QRectF(x1 + 3, y_pos + 3, width_bar, height_bar)
+                shadow_rect = QRectF(x1_clipped + 3, y_pos + 3, width_bar, height_bar)
                 painter.setBrush(QBrush(QColor(0, 0, 0, 30)))
                 painter.setPen(Qt.PenStyle.NoPen)
                 painter.drawRoundedRect(shadow_rect, 8, 8)
             
             # Draw main bar
-            rect = QRectF(x1, y_pos, width_bar, height_bar)
+            rect = QRectF(x1_clipped, y_pos, width_bar, height_bar)
             
             # Create gradient for bar
-            bar_gradient = QLinearGradient(x1, y_pos, x1, y_pos + height_bar)
+            bar_gradient = QLinearGradient(x1_clipped, y_pos, x1_clipped, y_pos + height_bar)
             if is_result:
                 bar_gradient.setColorAt(0, QColor(231, 76, 60))
                 bar_gradient.setColorAt(1, QColor(192, 57, 43))
@@ -196,19 +236,27 @@ class IntervalChart(QWidget):
             
             painter.drawRoundedRect(rect, 8, 8)
             
-            # Draw label
+            # Draw label with interval values
             painter.setPen(QPen(Qt.GlobalColor.white if is_result else Qt.GlobalColor.black, 1))
             font = QFont("Segoe UI", 10)
             if is_result:
                 font.setBold(True)
             painter.setFont(font)
             
-            label_text = f"{label} [{interval.start}, {interval.end}]"
+            label_text = f"{label} [{interval.start:.1f}, {interval.end:.1f}]"
             text_width = painter.fontMetrics().horizontalAdvance(label_text)
+            
             if text_width < width_bar - 10:
-                painter.drawText(int(x1 + 10), int(y_pos + height_bar/2 + 4), label_text)
-            else:
-                painter.drawText(int(x1 + 5), int(y_pos + height_bar/2 + 4), "...")
+                painter.drawText(int(x1_clipped + 10), int(y_pos + height_bar/2 + 4), label_text)
+            elif width_bar > 30:  # Если есть место хотя бы для части текста
+                painter.drawText(int(x1_clipped + 5), int(y_pos + height_bar/2 + 4), "...")
+            
+            # Для результата дополнительно показываем длину
+            if is_result:
+                length = interval.end - interval.start
+                length_text = f"Длина: {length:.1f}"
+                if text_width < width_bar - 10:
+                    painter.drawText(int(x1_clipped + 10), int(y_pos + height_bar + 20), length_text)
 
         # Draw intervals
         y_offset = axis_y - 45
@@ -227,12 +275,15 @@ class IntervalChart(QWidget):
 
         # Draw result interval
         if self.result_interval:
+            print(f"DEBUG: Drawing result interval at y={y_offset - 20}")
+            print(f"DEBUG: Result values: start={self.result_interval.start}, end={self.result_interval.end}")
             draw_interval_bar(self.result_interval, y_offset - 20, 
                             QColor(231, 76, 60), "Результат A", is_result=True)
         else:
             painter.setFont(QFont("Segoe UI", 12))
             painter.setPen(QPen(QColor(100, 100, 120)))
             painter.drawText(w//2 - 100, 50, "Результат: нет подходящих точек")
+
 
 class MaterialButton(QPushButton):
     def __init__(self, text, color="#3498db"):
@@ -258,6 +309,7 @@ class MaterialButton(QPushButton):
             }}
         """)
 
+
 class MaterialLineEdit(QLineEdit):
     def __init__(self, placeholder=""):
         super().__init__()
@@ -274,6 +326,7 @@ class MaterialLineEdit(QLineEdit):
                 border: 2px solid #3498db;
             }
         """)
+
 
 class MaterialComboBox(QComboBox):
     def __init__(self):
@@ -295,6 +348,7 @@ class MaterialComboBox(QComboBox):
             }
         """)
 
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -315,6 +369,7 @@ class MainWindow(QMainWindow):
                 border-radius: 10px;
                 margin-top: 10px;
                 padding-top: 15px;
+                background-color: white;
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
@@ -528,8 +583,17 @@ class MainWindow(QMainWindow):
             all_coords = [i.end for i in intervals]
             max_search = max(all_coords) * 1.5 if all_coords else 100
             
+            print(f"\n=== РАСЧЕТ ===")
+            print(f"Формула: {formula}")
+            print(f"Интервалы: {intervals}")
+            print(f"Режим: {mode}, Целевое значение: {target_is_true}")
+            print(f"Диапазон поиска: [0, {max_search}]")
+            
             solver = LogicSolver(formula, intervals, search_range=(0, max_search))
             result_a = solver.solve(mode=mode, target_value=target_is_true)
+            
+            print(f"Результат: {result_a}")
+            print(f"=== КОНЕЦ РАСЧЕТА ===\n")
             
             # Update chart
             self.chart.update_data(intervals, result_a)
@@ -539,9 +603,11 @@ class MainWindow(QMainWindow):
             mode_text = "минимальный" if mode == "min" else "максимальный"
             
             if result_a:
+                length = result_a.end - result_a.start
                 self.result_label.setText(
                     f"✅ Чтобы выражение было {target_text}, {mode_text} отрезок A: "
-                    f"[{result_a.start:.2f}, {result_a.end:.2f}]"
+                    f"[{result_a.start:.2f}, {result_a.end:.2f}]\n"
+                    f"📏 Длина отрезка: {length:.2f}"
                 )
                 self.result_label.setStyleSheet("color: #27ae60; font-size: 15px; font-weight: bold;")
             else:
@@ -554,6 +620,7 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Ошибка вычисления", f"❌ {str(e)}")
             self.result_label.setText("❌ Ошибка вычисления")
             self.result_label.setStyleSheet("color: #c0392b; font-size: 15px; font-weight: bold;")
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
