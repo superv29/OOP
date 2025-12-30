@@ -1,20 +1,29 @@
-import tkinter as tk
-from tkinter import ttk
+from tkinter import *
 from abc import *
+import threading
 
 class Solver(ABC):
     def __init__(self):
-        self._win_rocks = None
-        self._operations = None
-        self._type = None
-        self._conditions = None
-        self._bad_move = None
+        self._win_rocks = NONE
+        self._operations = NONE
+        self._type = NONE
+        self._conditions = NONE
+        self._bad_move = NONE
 
-    def __set_win_rocks(self, count): self._win_rocks = count
-    def __set_operations(self, operations): self._operations = operations
-    def __set_type(self, type): self._type = type
-    def __set_conditions(self, cond): self._conditions = cond
-    def __set_bad_move(self, flag): self._bad_move = flag
+    def __set_win_rocks(self, count):
+        self._win_rocks = count
+    
+    def __set_operations(self, operations):
+        self._operations = operations
+
+    def __set_type(self, type):
+        self._type = type
+    
+    def __set_conditions(self, cond):
+        self._conditions = cond
+
+    def __set_bad_move(self, flag):
+        self._bad_move = flag
 
     WinRocks = property(lambda x: x._win_rocks, __set_win_rocks)
     Operations = property(lambda x: x._operations, __set_operations)
@@ -23,11 +32,16 @@ class Solver(ABC):
     BadMove = property(lambda x: x._bad_move, __set_bad_move)
 
     @abstractmethod
-    def solve_task_19(self): pass
+    def solve_task_19(self):
+        pass
+
     @abstractmethod
-    def solve_task_20(self): pass
+    def solve_task_20(self):
+        pass
+
     @abstractmethod
-    def solve_task_21(self): pass
+    def solve_task_21(self):
+        pass
 
 class Solver_1_Heap(Solver):
     def __init__(self):
@@ -35,35 +49,51 @@ class Solver_1_Heap(Solver):
         self._type = "1"
 
     def solve_task_19(self):
-        if self.Operations[0][0] in ("*", "+"):
+        if self.Operations[0][0] == "*" or self.Operations[0][0] == "+":
             for s in range(1, self.Conditions):
-                if self.__func_19(s, 1): return s
+                if self.__func_19(s, 1):
+                    return s
         else:
-            for s in range(self.Conditions, self.Conditions*100):
-                if self.__func_19(s, 1): return s
-        return "N/A"
+            for s in range(self.Conditions, self.Conditions*1000):
+                if self.__func_19(s, 1):
+                    return s
                 
     def solve_task_20(self):
         answers = []
-        rng = range(1, self.Conditions) if self.Operations[0][0] in ("*", "+") else range(self.Conditions, self.Conditions*100)
-        for s in rng:
-            if self.__func_20(s, 1): answers.append(s)
-        return ", ".join(map(str, answers)) if answers else "N/A"
+        if self.Operations[0][0] == "*" or self.Operations[0][0] == "+":
+            for s in range(1, self.Conditions):
+                if self.__func_20(s, 1):
+                    answers.append(s)
+        else:
+            for s in range(self.Conditions, self.Conditions*1000):
+                if self.__func_20(s, 1):
+                    answers.append(s)
+        return answers
     
     def solve_task_21(self):
         temps = []
-        rng = range(1, self.Conditions) if self.Operations[0][0] in ("*", "+") else range(self.Conditions, self.Conditions*100)
-        for s in rng:
-            if self.__func_21(s, 1): temps.append(s)
-        
-        results = []
-        for s in temps:
-            if not self.__func_21_correct(s, 1):
-                results.append(s)
-        return results[0] if results else "N/A"
+        if self.Operations[0][0] == "*" or self.Operations[0][0] == "+":
+            for s in range(1, self.Conditions):
+                if self.__func_21(s, 1):
+                    temps.append(s)
+            for s in range(1, self.Conditions):
+                if self.__func_21_correct(s, 1):
+                    for i in range(len(temps)):
+                        if temps[i] == s:
+                            temps.remove(s)
+        else:
+            for s in range(self.Conditions, self.Conditions*1000):
+                if self.__func_21(s, 1):
+                    temps.append(s)
+            for s in range(self.Conditions, self.Conditions*1000):
+                if self.__func_21_correct(s, 1):
+                    for i in range(len(temps)):
+                        if temps[i] == s:
+                            temps.remove(s)
+        return temps[0]
 
     def __func_19(self, x, h):
-        if self.Operations[0][0] in ("*", "+"):
+        if self.Operations[0][0] == "*" or self.Operations[0][0] == "+":
             if x >= self.WinRocks and h == 3: return True
             if x < self.WinRocks and h == 3: return False
             if x >= self.WinRocks: return False
@@ -72,17 +102,25 @@ class Solver_1_Heap(Solver):
             if x > self.WinRocks and h == 3: return False
             if x <= self.WinRocks: return False 
 
-        moves = [eval(f"{x}{op}") for op in self.Operations]
-        if self.BadMove and h == 1:
-            return any(self.__func_19(m, h+1) for m in moves)
-        
-        if h % 2 == 1:
-            return all(self.__func_19(m, h+1) for m in moves)
-        else:
-            return any(self.__func_19(m, h+1) for m in moves)
+        if len(self.Operations) == 2:
+            if self.BadMove != True:
+                if h%2 == 1:
+                    return self.__func_19(eval(f"x{self.Operations[0]}"), h+1) and self.__func_19(eval(f"x{self.Operations[1]}"), h+1)
+                else:
+                    return self.__func_19(eval(f"x{self.Operations[0]}"), h+1) or self.__func_19(eval(f"x{self.Operations[1]}"), h+1)
+            else:
+                return self.__func_19(eval(f"x{self.Operations[0]}"), h+1) or self.__func_19(eval(f"x{self.Operations[1]}"), h+1)
+        elif len(self.Operations) == 3:
+            if self.BadMove != True:
+                if h%2 == 1:
+                    return self.__func_19(eval(f"x{self.Operations[0]}"), h+1) and self.__func_19(eval(f"x{self.Operations[1]}"), h+1) and self.__func_19(eval(f"x{self.Operations[2]}"), h+1)
+                else:
+                    return self.__func_19(eval(f"x{self.Operations[0]}"), h+1) or self.__func_19(eval(f"x{self.Operations[1]}"), h+1) or self.__func_19(eval(f"x{self.Operations[2]}"), h+1)
+            else:
+                return self.__func_19(eval(f"x{self.Operations[0]}"), h+1) or self.__func_19(eval(f"x{self.Operations[1]}"), h+1) or self.__func_19(eval(f"x{self.Operations[2]}"), h+1)
     
     def __func_20(self, x, h):
-        if self.Operations[0][0] in ("*", "+"):
+        if self.Operations[0][0] == "*" or self.Operations[0][0] == "+":
             if x >= self.WinRocks and h == 4: return True
             if x < self.WinRocks and h == 4: return False
             if x >= self.WinRocks: return False
@@ -91,14 +129,19 @@ class Solver_1_Heap(Solver):
             if x > self.WinRocks and h == 4: return False
             if x <= self.WinRocks: return False 
 
-        moves = [eval(f"{x}{op}") for op in self.Operations]
-        if h % 2 == 0:
-            return all(self.__func_20(m, h+1) for m in moves)
-        else:
-            return any(self.__func_20(m, h+1) for m in moves)
+        if len(self.Operations) == 2:
+            if h%2 == 0:
+                return self.__func_20(eval(f"x{self.Operations[0]}"), h+1) and self.__func_20(eval(f"x{self.Operations[1]}"), h+1)
+            else:
+                return self.__func_20(eval(f"x{self.Operations[0]}"), h+1) or self.__func_20(eval(f"x{self.Operations[1]}"), h+1)
+        elif len(self.Operations) == 3:
+            if h%2 == 0:
+                return self.__func_20(eval(f"x{self.Operations[0]}"), h+1) and self.__func_20(eval(f"x{self.Operations[1]}"), h+1) and self.__func_20(eval(f"x{self.Operations[2]}"), h+1)
+            else:
+                return self.__func_20(eval(f"x{self.Operations[0]}"), h+1) or self.__func_20(eval(f"x{self.Operations[1]}"), h+1) or self.__func_20(eval(f"x{self.Operations[2]}"), h+1)
 
     def __func_21(self, x, h):
-        if self.Operations[0][0] in ("*", "+"):
+        if self.Operations[0][0] == "*" or self.Operations[0][0] == "+":
             if x >= self.WinRocks and (h == 3 or h == 5): return True
             if x < self.WinRocks and h == 5: return False
             if x >= self.WinRocks and h < 5: return False
@@ -107,285 +150,399 @@ class Solver_1_Heap(Solver):
             if x > self.WinRocks and h == 5: return False
             if x <= self.WinRocks and h < 5: return False 
 
-        moves = [eval(f"{x}{op}") for op in self.Operations]
-        if h % 2 == 1:
-            return all(self.__func_21(m, h+1) for m in moves)
-        else:
-            return any(self.__func_21(m, h+1) for m in moves)
+        if len(self.Operations) == 2:
+            if h%2 == 1:
+                return self.__func_21(eval(f"x{self.Operations[0]}"), h+1) and self.__func_21(eval(f"x{self.Operations[1]}"), h+1)
+            else:
+                return self.__func_21(eval(f"x{self.Operations[0]}"), h+1) or self.__func_21(eval(f"x{self.Operations[1]}"), h+1)
+        elif len(self.Operations) == 3:
+            if h%2 == 1:
+                return self.__func_21(eval(f"x{self.Operations[0]}"), h+1) and self.__func_21(eval(f"x{self.Operations[1]}"), h+1) and self.__func_21(eval(f"x{self.Operations[2]}"), h+1)
+            else:
+                return self.__func_21(eval(f"x{self.Operations[0]}"), h+1) or self.__func_21(eval(f"x{self.Operations[1]}"), h+1) or self.__func_21(eval(f"x{self.Operations[2]}"), h+1)
 
     def __func_21_correct(self, x, h):
-        if self.Operations[0][0] in ("*", "+"):
-            if x >= self.WinRocks and h == 3: return True
-            if x < self.WinRocks and h == 3: return False
-            if x >= self.WinRocks and h < 3: return False
-        else:
-            if x <= self.WinRocks and h == 3: return True
-            if x > self.WinRocks and h == 3: return False
-            if x <= self.WinRocks and h < 3: return False 
-        
-        moves = [eval(f"{x}{op}") for op in self.Operations]
-        if h % 2 == 1:
-            return all(self.__func_21_correct(m, h+1) for m in moves)
-        else:
-            return any(self.__func_21_correct(m, h+1) for m in moves)
+            if self.Operations[0][0] == "*" or self.Operations[0][0] == "+":
+                if x >= self.WinRocks and h == 3: return True
+                if x < self.WinRocks and h == 3: return False
+                if x >= self.WinRocks and h < 3: return False
+            else:
+                if x <= self.WinRocks and h == 3: return True
+                if x > self.WinRocks and h == 3: return False
+                if x <= self.WinRocks and h < 3: return False 
+            if len(self.Operations) == 2:
+                if h%2 == 1:
+                    return self.__func_21_correct(eval(f"x{self.Operations[0]}"), h+1) and self.__func_21_correct(eval(f"x{self.Operations[1]}"), h+1)
+                else:
+                    return self.__func_21_correct(eval(f"x{self.Operations[0]}"), h+1) or self.__func_21_correct(eval(f"x{self.Operations[1]}"), h+1)
+            elif len(self.Operations) == 3:
+                if h%2 == 1:
+                    return self.__func_21_correct(eval(f"x{self.Operations[0]}"), h+1) and self.__func_21_correct(eval(f"x{self.Operations[1]}"), h+1) and self.__func_21_correct(eval(f"x{self.Operations[2]}"), h+1)
+                else:
+                    return self.__func_21_correct(eval(f"x{self.Operations[0]}"), h+1) or self.__func_21_correct(eval(f"x{self.Operations[1]}"), h+1) or self.__func_21_correct(eval(f"x{self.Operations[2]}"), h+1)
 
 class Solver_2_Heap(Solver):
     def __init__(self):
         super().__init__()
         self._type = "2"
-        self._start_rocks = None
+        self._start_rocks = NONE
     
-    def __set_start_rocks(self, start): self._start_rocks = start
+    def __set_start_rocks(self, start):
+        self._start_rocks = start
+
     StartRocks = property(lambda x: x._start_rocks, __set_start_rocks)
 
     def solve_task_19(self):
-        rng = range(1, self.Conditions) if self.Operations[0][0] in ("*", "+") else range(self.Conditions, self.Conditions*100)
-        for s in rng:
-            if self.__func_19(s, self.StartRocks, 1): return s
-        return "N/A"
+        if self.Operations[0][0] == "*" or self.Operations[0][0] == "+":
+            for s in range(1, self.Conditions):
+                if self.__func_19(s, self.StartRocks, 1):
+                    return s
+        else:
+            for s in range(self.Conditions, self.Conditions*1000):
+                if self.__func_19(s, self.StartRocks, 1):
+                    return s
 
     def solve_task_20(self):
         answers = []
-        rng = range(1, self.Conditions) if self.Operations[0][0] in ("*", "+") else range(self.Conditions, self.Conditions*100)
-        for s in rng:
-            if self.__func_20(s, self.StartRocks, 1): answers.append(s)
-        return ", ".join(map(str, answers)) if answers else "N/A"
+        if self.Operations[0][0] == "*" or self.Operations[0][0] == "+":
+            for s in range(1, self.Conditions):
+                if self.__func_20(s, self.StartRocks, 1):
+                    answers.append(s)
+        else:
+            for s in range(self.Conditions, self.Conditions*1000):
+                if self.__func_20(s, self.StartRocks, 1):
+                    answers.append(s)
+        return answers
 
     def solve_task_21(self):
         temps = []
-        rng = range(1, self.Conditions) if self.Operations[0][0] in ("*", "+") else range(self.Conditions, self.Conditions*100)
-        for s in rng:
-            if self.__func_21(s, self.StartRocks, 1): temps.append(s)
-        
-        results = []
-        for s in temps:
-            if not self.__func_21_correct(s, self.StartRocks, 1):
-                results.append(s)
-        return results[0] if results else "N/A"
+        if self.Operations[0][0] == "*" or self.Operations[0][0] == "+":
+            for s in range(1, self.Conditions):
+                if self.__func_21(s, self.StartRocks, 1):
+                    temps.append(s)
+            for s in range(1, self.Conditions):
+                if self.__func_21_correct(s, self.StartRocks, 1):
+                    for i in range(len(temps)):
+                        if temps[i] == s:
+                            temps.remove(s)
+        else:
+            for s in range(self.Conditions, self.Conditions*1000):
+                if self.__func_21(s, self.StartRocks, 1):
+                    temps.append(s)
+            for s in range(self.Conditions, self.Conditions*1000):
+                if self.__func_21_correct(s, self.StartRocks, 1):
+                    for i in range(len(temps)):
+                        if temps[i] == s:
+                            temps.remove(s)
+        return temps[0]
 
     def __func_19(self, x, y, h):
-        win = (x + y >= self.WinRocks) if self.Operations[0][0] in ("*", "+") else (x + y <= self.WinRocks)
-        if win and h == 3: return True
-        if not win and h == 3: return False
-        if win: return False
-
-        moves = []
-        for op in self.Operations:
-            moves.append((eval(f"{x}{op}"), y))
-            moves.append((x, eval(f"{y}{op}")))
-        
-        if self.BadMove and h == 1:
-            return any(self.__func_19(m[0], m[1], h+1) for m in moves)
-
-        if h % 2 == 1:
-            return all(self.__func_19(m[0], m[1], h+1) for m in moves)
+        if self.Operations[0][0] == "*" or self.Operations[0][0] == "+":
+            if x + y >= self.WinRocks and h == 3: return True
+            if x + y < self.WinRocks and h == 3: return False
+            if x + y >= self.WinRocks: return False
         else:
-            return any(self.__func_19(m[0], m[1], h+1) for m in moves)
-
+            if x + y <= self.WinRocks and h == 3: return True
+            if x + y > self.WinRocks and h == 3: return False
+            if x + y <= self.WinRocks: return False 
+ 
+        if len(self.Operations) == 2:
+            if self.BadMove != True:
+                if h%2 == 1:
+                    return self.__func_19(eval(f"x{self.Operations[0]}"), y, h+1) and self.__func_19(eval(f"x{self.Operations[1]}"), y, h+1) \
+                        and self.__func_19(x, eval(f"y{self.Operations[0]}"), h+1) and self.__func_19(x, eval(f"y{self.Operations[1]}"), h+1)
+                else:
+                    return self.__func_19(eval(f"x{self.Operations[0]}"), y, h+1) or self.__func_19(eval(f"x{self.Operations[1]}"), y, h+1) \
+                        or self.__func_19(x, eval(f"y{self.Operations[0]}"), h+1) or self.__func_19(x, eval(f"y{self.Operations[1]}"), h+1)
+            else:
+                return self.__func_19(eval(f"x{self.Operations[0]}"), y, h+1) or self.__func_19(eval(f"x{self.Operations[1]}"), y, h+1) \
+                    or self.__func_19(x, eval(f"y{self.Operations[0]}"), h+1) or self.__func_19(x, eval(f"y{self.Operations[1]}"), h+1)
+        elif len(self.Operations) == 3:
+            if self.BadMove != True:
+                if h%2 == 1:
+                    return self.__func_19(eval(f"x{self.Operations[0]}"), y, h+1) and self.__func_19(eval(f"x{self.Operations[1]}"), y, h+1) \
+                        and self.__func_19(eval(f"x{self.Operations[2]}"), y, h+1) and self.__func_19(x, eval(f"y{self.Operations[0]}"), h+1) \
+                            and self.__func_19(x, eval(f"y{self.Operations[1]}"), h+1) and self.__func_19(x, eval(f"y{self.Operations[2]}"), h+1)
+                else:
+                    return self.__func_19(eval(f"x{self.Operations[0]}"), y, h+1) or self.__func_19(eval(f"x{self.Operations[1]}"), y, h+1) \
+                        or self.__func_19(eval(f"x{self.Operations[2]}"), y, h+1) or self.__func_19(x, eval(f"y{self.Operations[0]}"), h+1) \
+                            or self.__func_19(x, eval(f"y{self.Operations[1]}"), h+1) or self.__func_19(x, eval(f"y{self.Operations[2]}"), h+1)
+            else:
+                return self.__func_19(eval(f"x{self.Operations[0]}"), y, h+1) or self.__func_19(eval(f"x{self.Operations[1]}"), y, h+1) \
+                    or self.__func_19(eval(f"x{self.Operations[2]}"), y, h+1) or self.__func_19(x, eval(f"y{self.Operations[0]}"), h+1) \
+                        or self.__func_19(x, eval(f"y{self.Operations[1]}"), h+1) or self.__func_19(x, eval(f"y{self.Operations[2]}"), h+1)
+   
     def __func_20(self, x, y, h):
-        win = (x + y >= self.WinRocks) if self.Operations[0][0] in ("*", "+") else (x + y <= self.WinRocks)
-        if win and h == 4: return True
-        if not win and h == 4: return False
-        if win: return False
-
-        moves = []
-        for op in self.Operations:
-            moves.append((eval(f"{x}{op}"), y))
-            moves.append((x, eval(f"{y}{op}")))
-
-        if h % 2 == 0:
-            return all(self.__func_20(m[0], m[1], h+1) for m in moves)
+        if self.Operations[0][0] == "*" or self.Operations[0][0] == "+":
+            if x + y >= self.WinRocks and h == 4: return True
+            if x + y < self.WinRocks and h == 4: return False
+            if x + y >= self.WinRocks: return False
         else:
-            return any(self.__func_20(m[0], m[1], h+1) for m in moves)
+            if x + y <= self.WinRocks and h == 4: return True
+            if x + y > self.WinRocks and h == 4: return False
+            if x + y <= self.WinRocks: return False 
+
+        if len(self.Operations) == 2:
+            if h%2 == 0:
+                return self.__func_20(eval(f"x{self.Operations[0]}"), y, h+1) and self.__func_20(eval(f"x{self.Operations[1]}"), y, h+1) \
+                        and self.__func_20(x, eval(f"y{self.Operations[0]}"), h+1) and self.__func_20(x, eval(f"y{self.Operations[1]}"), h+1)
+            else:
+                return self.__func_20(eval(f"x{self.Operations[0]}"), y, h+1) or self.__func_20(eval(f"x{self.Operations[1]}"), y, h+1) \
+                        or self.__func_20(x, eval(f"y{self.Operations[0]}"), h+1) or self.__func_20(x, eval(f"y{self.Operations[1]}"), h+1)
+        elif len(self.Operations) == 3:
+            if h%2 == 0:
+                return self.__func_20(eval(f"x{self.Operations[0]}"), y, h+1) and self.__func_20(eval(f"x{self.Operations[1]}"), y, h+1) \
+                        and self.__func_20(eval(f"x{self.Operations[2]}"), y, h+1) and self.__func_20(x, eval(f"y{self.Operations[0]}"), h+1) \
+                            and self.__func_20(x, eval(f"y{self.Operations[1]}"), h+1) and self.__func_20(x, eval(f"y{self.Operations[2]}"), h+1)
+            else:
+                return self.__func_20(eval(f"x{self.Operations[0]}"), y, h+1) or self.__func_20(eval(f"x{self.Operations[1]}"), y, h+1) \
+                    or self.__func_20(eval(f"x{self.Operations[2]}"), y, h+1) or self.__func_20(x, eval(f"y{self.Operations[0]}"), h+1) \
+                        or self.__func_20(x, eval(f"y{self.Operations[1]}"), h+1) or self.__func_20(x, eval(f"y{self.Operations[2]}"), h+1)
 
     def __func_21(self, x, y, h):
-        win = (x + y >= self.WinRocks) if self.Operations[0][0] in ("*", "+") else (x + y <= self.WinRocks)
-        if win and (h == 3 or h == 5): return True
-        if not win and h == 5: return False
-        if win and h < 5: return False
-
-        moves = []
-        for op in self.Operations:
-            moves.append((eval(f"{x}{op}"), y))
-            moves.append((x, eval(f"{y}{op}")))
-
-        if h % 2 == 1:
-            return all(self.__func_21(m[0], m[1], h+1) for m in moves)
+        if self.Operations[0][0] == "*" or self.Operations[0][0] == "+":
+            if x + y >= self.WinRocks and (h == 3 or h == 5): return True
+            if x + y < self.WinRocks and h == 5: return False
+            if x + y >= self.WinRocks and h < 5: return False
         else:
-            return any(self.__func_21(m[0], m[1], h+1) for m in moves)
+            if x + y <= self.WinRocks and (h == 3 or h == 5): return True
+            if x + y > self.WinRocks and h == 5: return False
+            if x + y <= self.WinRocks and h < 5: return False 
 
-    def __func_21_correct(self, x, y, h):
-        win = (x + y >= self.WinRocks) if self.Operations[0][0] in ("*", "+") else (x + y <= self.WinRocks)
-        if win and h == 3: return True
-        if not win and h == 3: return False
-        if win and h < 3: return False
-
-        moves = []
-        for op in self.Operations:
-            moves.append((eval(f"{x}{op}"), y))
-            moves.append((x, eval(f"{y}{op}")))
-
-        if h % 2 == 1:
-            return all(self.__func_21_correct(m[0], m[1], h+1) for m in moves)
-        else:
-            return any(self.__func_21_correct(m[0], m[1], h+1) for m in moves)
-
-class ModernApp:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("EGE Game Solver 19-21")
-        self.root.geometry("850x650")
-        self.root.configure(bg="#1e293b")  
-
-        self.setup_styles()
-        self.create_widgets()
-
-    def setup_styles(self):
-        style = ttk.Style()
-        style.theme_use('clam')
-
-        bg_color = "#1e293b"
-        card_color = "#334155"
-        accent_color = "#6366f1"
-        text_color = "#f8fafc"
-
-        style.configure("TFrame", background=bg_color)
-        style.configure("Card.TFrame", background=card_color, relief="flat")
-        
-        style.configure("TLabel", background=bg_color, foreground=text_color, font=("Segoe UI", 10))
-        style.configure("Header.TLabel", font=("Segoe UI", 16, "bold"), foreground=accent_color)
-        style.configure("Subheader.TLabel", font=("Segoe UI", 11, "bold"), background=card_color)
-        
-        style.configure("TRadiobutton", background=card_color, foreground=text_color, font=("Segoe UI", 10))
-        style.configure("TCheckbutton", background=bg_color, foreground=text_color, font=("Segoe UI", 10))
-
-        style.configure("Action.TButton", 
-                        background=accent_color, 
-                        foreground="white", 
-                        font=("Segoe UI", 11, "bold"),
-                        padding=10)
-        style.map("Action.TButton", background=[('active', '#4f46e5')])
-
-    def create_widgets(self):
-        main_layout = ttk.Frame(self.root, padding=20)
-        main_layout.pack(fill="both", expand=True)
-
-        header = ttk.Label(main_layout, text="Решатель задач 19-21 ЕГЭ", style="Header.TLabel")
-        header.pack(pady=(0, 20))
-
-        content_grid = ttk.Frame(main_layout)
-        content_grid.pack(fill="both", expand=True)
-
-        left_col = ttk.Frame(content_grid, padding=(0, 0, 10, 0))
-        left_col.pack(side="left", fill="both", expand=True)
-
-        heap_card = ttk.Frame(left_col, style="Card.TFrame", padding=15)
-        heap_card.pack(fill="x", pady=(0, 15))
-
-        ttk.Label(heap_card, text="Конфигурация игры", style="Subheader.TLabel").pack(anchor="w", pady=(0, 10))
-        
-        self.task_type = tk.StringVar(value="1")
-        modes_frame = ttk.Frame(heap_card, style="Card.TFrame")
-        modes_frame.pack(fill="x")
-        
-        ttk.Radiobutton(modes_frame, text="1 куча", value="1", variable=self.task_type, command=self.toggle_heaps).pack(side="left", padx=10)
-        ttk.Radiobutton(modes_frame, text="2 кучи", value="2", variable=self.task_type, command=self.toggle_heaps).pack(side="left", padx=10)
-
-        self.second_heap_frame = ttk.Frame(heap_card, style="Card.TFrame")
-        ttk.Label(self.second_heap_frame, text="Камней во 2-й куче:", style="TLabel", background="#334155").pack(side="left", padx=(0, 10))
-        self.ent_second_heap = tk.Entry(self.second_heap_frame, width=8, font=("Segoe UI", 11), bg="#1e293b", fg="white", insertbackground="white")
-        self.ent_second_heap.pack(side="left")
-
-        params_card = ttk.Frame(left_col, style="Card.TFrame", padding=15)
-        params_card.pack(fill="x")
-
-        ttk.Label(params_card, text="Условия победы", style="Subheader.TLabel").pack(anchor="w", pady=(0, 10))
-        
-        grid_params = ttk.Frame(params_card, style="Card.TFrame")
-        grid_params.pack(fill="x")
-
-        ttk.Label(grid_params, text="Цель (Win):", background="#334155").grid(row=0, column=0, sticky="w", pady=5)
-        self.ent_win = tk.Entry(grid_params, width=10, font=("Segoe UI", 11), bg="#1e293b", fg="white", borderwidth=0)
-        self.ent_win.grid(row=0, column=1, padx=10, sticky="w")
-
-        ttk.Label(grid_params, text="Лимит (S):", background="#334155").grid(row=1, column=0, sticky="w", pady=5)
-        self.ent_s = tk.Entry(grid_params, width=10, font=("Segoe UI", 11), bg="#1e293b", fg="white", borderwidth=0)
-        self.ent_s.grid(row=1, column=1, padx=10, sticky="w")
-
-        right_col = ttk.Frame(content_grid, padding=(10, 0, 0, 0))
-        right_col.pack(side="left", fill="both", expand=True)
-
-        oper_card = ttk.Frame(right_col, style="Card.TFrame", padding=15)
-        oper_card.pack(fill="both", expand=True)
-
-        ttk.Label(oper_card, text="Ходы (напр. +1, *2)", style="Subheader.TLabel").pack(anchor="w", pady=(0, 10))
-        
-        self.ent_op1 = tk.Entry(oper_card, font=("Segoe UI", 11), bg="#1e293b", fg="white")
-        self.ent_op1.pack(fill="x", pady=2)
-        self.ent_op2 = tk.Entry(oper_card, font=("Segoe UI", 11), bg="#1e293b", fg="white")
-        self.ent_op2.pack(fill="x", pady=2)
-        self.ent_op3 = tk.Entry(oper_card, font=("Segoe UI", 11), bg="#1e293b", fg="white")
-        self.ent_op3.pack(fill="x", pady=2)
-
-        self.bad_move_var = tk.BooleanVar()
-        ttk.Checkbutton(right_col, text="Неудачный ход Пети (зад. 19)", variable=self.bad_move_var).pack(anchor="w", pady=10)
-
-        self.btn_solve = ttk.Button(main_layout, text="РАССЧИТАТЬ ОТВЕТЫ", style="Action.TButton", command=self.solve)
-        self.btn_solve.pack(fill="x", pady=20)
-
-        self.results_card = ttk.Frame(main_layout, style="Card.TFrame", padding=15)
-        self.results_card.pack(fill="x")
-        
-        self.lbl_res19 = ttk.Label(self.results_card, text="Задача 19: ---", font=("Segoe UI", 11), background="#334155")
-        self.lbl_res19.pack(anchor="w")
-        self.lbl_res20 = ttk.Label(self.results_card, text="Задача 20: ---", font=("Segoe UI", 11), background="#334155")
-        self.lbl_res20.pack(anchor="w")
-        self.lbl_res21 = ttk.Label(self.results_card, text="Задача 21: ---", font=("Segoe UI", 11), background="#334155")
-        self.lbl_res21.pack(anchor="w")
-
-    def toggle_heaps(self):
-        if self.task_type.get() == "2":
-            self.second_heap_frame.pack(fill="x", pady=(10, 0))
-        else:
-            self.second_heap_frame.pack_forget()
-
-    def solve(self):
-        try:
-            is_two = self.task_type.get() == "2"
-            win_val = int(self.ent_win.get())
-            s_val = int(self.ent_s.get())
-            
-            opers = []
-            for e in [self.ent_op1, self.ent_op2, self.ent_op3]:
-                val = e.get().strip()
-                if val: opers.append(val)
-
-            if not opers: return
-
-            if not is_two:
-                solver = Solver_1_Heap()
+        if len(self.Operations) == 2:
+            if h%2 == 1:
+                return self.__func_21(eval(f"x{self.Operations[0]}"), y, h+1) and self.__func_21(eval(f"x{self.Operations[1]}"), y, h+1) \
+                        and self.__func_21(x, eval(f"y{self.Operations[0]}"), h+1) and self.__func_21(x, eval(f"y{self.Operations[1]}"), h+1)
             else:
-                solver = Solver_2_Heap()
-                solver.StartRocks = int(self.ent_second_heap.get())
+                return self.__func_21(eval(f"x{self.Operations[0]}"), y, h+1) or self.__func_21(eval(f"x{self.Operations[1]}"), y, h+1) \
+                        or self.__func_21(x, eval(f"y{self.Operations[0]}"), h+1) or self.__func_21(x, eval(f"y{self.Operations[1]}"), h+1)
+        elif len(self.Operations) == 3:
+            if h%2 == 1:
+                return self.__func_21(eval(f"x{self.Operations[0]}"), y, h+1) and self.__func_21(eval(f"x{self.Operations[1]}"), y, h+1) \
+                        and self.__func_21(eval(f"x{self.Operations[2]}"), y, h+1) and self.__func_21(x, eval(f"y{self.Operations[0]}"), h+1) \
+                            and self.__func_21(x, eval(f"y{self.Operations[1]}"), h+1) and self.__func_21(x, eval(f"y{self.Operations[2]}"), h+1)
+            else:
+                return self.__func_21(eval(f"x{self.Operations[0]}"), y, h+1) or self.__func_21(eval(f"x{self.Operations[1]}"), y, h+1) \
+                    or self.__func_21(eval(f"x{self.Operations[2]}"), y, h+1) or self.__func_21(x, eval(f"y{self.Operations[0]}"), h+1) \
+                        or self.__func_21(x, eval(f"y{self.Operations[1]}"), h+1) or self.__func_21(x, eval(f"y{self.Operations[2]}"), h+1)
+    
+    def __func_21_correct(self, x, y, h):
+            if self.Operations[0][0] == "*" or self.Operations[0][0] == "+":
+                if x + y >= self.WinRocks and h == 3: return True
+                if x + y < self.WinRocks and h == 3: return False
+                if x + y >= self.WinRocks and h < 3: return False
+            else:
+                if x + y <= self.WinRocks and h == 3: return True
+                if x + y > self.WinRocks and h == 3: return False
+                if x + y <= self.WinRocks and h < 3: return False 
+            if len(self.Operations) == 2:
+                if h%2 == 1:
+                    return self.__func_21_correct(eval(f"x{self.Operations[0]}"), y, h+1) and self.__func_21_correct(eval(f"x{self.Operations[1]}"), y, h+1) \
+                            and self.__func_21_correct(x, eval(f"y{self.Operations[0]}"), h+1) and self.__func_21_correct(x, eval(f"y{self.Operations[1]}"), h+1)
+                else:
+                    return self.__func_21_correct(eval(f"x{self.Operations[0]}"), y, h+1) or self.__func_21_correct(eval(f"x{self.Operations[1]}"), y, h+1) \
+                            or self.__func_21_correct(x, eval(f"y{self.Operations[0]}"), h+1) or self.__func_21_correct(x, eval(f"y{self.Operations[1]}"), h+1)
+            elif len(self.Operations) == 3:
+                if h%2 == 1:
+                    return self.__func_21_correct(eval(f"x{self.Operations[0]}"), y, h+1) and self.__func_21_correct(eval(f"x{self.Operations[1]}"), y, h+1) \
+                            and self.__func_21_correct(eval(f"x{self.Operations[2]}"), y, h+1) and self.__func_21_correct(x, eval(f"y{self.Operations[0]}"), h+1) \
+                                and self.__func_21_correct(x, eval(f"y{self.Operations[1]}"), h+1) and self.__func_21_correct(x, eval(f"y{self.Operations[2]}"), h+1)
+                else:
+                    return self.__func_21_correct(eval(f"x{self.Operations[0]}"), y, h+1) or self.__func_21_correct(eval(f"x{self.Operations[1]}"), y, h+1) \
+                        or self.__func_21_correct(eval(f"x{self.Operations[2]}"), y, h+1) or self.__func_21_correct(x, eval(f"y{self.Operations[0]}"), h+1) \
+                            or self.__func_21_correct(x, eval(f"y{self.Operations[1]}"), h+1) or self.__func_21_correct(x, eval(f"y{self.Operations[2]}"), h+1) 
 
-            solver.WinRocks = win_val
-            solver.Conditions = s_val
-            solver.Operations = opers
-            solver.BadMove = self.bad_move_var.get()
+root = Tk()
+root.title("Solver 19-21 EGE")
+root.geometry("720x510")
+root.configure(bg="white")
 
-            res19 = solver.solve_task_19()
-            res20 = solver.solve_task_20()
-            res21 = solver.solve_task_21()
+frame_conditions = Frame(root, bg="white")
+frame_conditions.pack(fill=X, padx=20, pady=10)
 
-            self.lbl_res19.config(text=f"Задача 19 (S): {res19}")
-            self.lbl_res20.config(text=f"Задача 20 (S): {res20}")
-            self.lbl_res21.config(text=f"Задача 21 (S): {res21}")
+header_main = Label(root, text="Задания 19-21 ЕГЭ", font=("Arial", 14, "bold"), bg="white", fg="black")
+header_main.pack(anchor=CENTER, pady=10)
+
+main_container = Frame(frame_conditions, bg="white")
+main_container.pack(fill=X, pady=10)
+
+left_frame = Frame(main_container, bg="white")
+left_frame.pack(side=LEFT, anchor=N, padx=(0, 20))
+
+header_type = Label(left_frame, text="Выберите количество куч", font=("Arial", 10), bg="white", fg="black")
+header_type.pack(anchor=W)
+
+task_1 = "1 куча"
+task_2 = "2 кучи"
+task_type = StringVar(value=task_1)
+
+second_heap_label = None
+second_heap_entry = None
+
+def on_task_type_change(*args):
+    global second_heap_label, second_heap_entry
+    
+    if task_type.get() == task_2:
+        if second_heap_label is None:
+            second_heap_label = Label(left_frame, text="Введите начальное количество камней во 2-й куче", 
+                                     font=("Arial", 9), bg="white", fg="black")
+            second_heap_label.pack(anchor=W, pady=(10, 2))
             
-        except Exception as e:
-            self.lbl_res19.config(text="Ошибка: Проверьте ввод данных")
-            print(e)
+            second_heap_entry = Entry(left_frame, font=("Arial", 10), width=8, fg="black")
+            second_heap_entry.pack(anchor=W, pady=5)
+    else:
+        if second_heap_label is not None:
+            second_heap_label.destroy()
+            second_heap_entry.destroy()
+            second_heap_label = None
+            second_heap_entry = None
 
-if __name__ == "__main__":
-    root = tk.Tk()
-    app = ModernApp(root)
-    root.mainloop()
+task_type.trace('w', on_task_type_change)
+
+task1_btn = Radiobutton(left_frame, text=task_1, value=task_1, variable=task_type,
+                       bg="white", fg="black", selectcolor="white", command=on_task_type_change)
+task1_btn.pack(anchor=W, pady=2)
+  
+task2_btn = Radiobutton(left_frame, text=task_2, value=task_2, variable=task_type,
+                       bg="white", fg="black", selectcolor="white", command=on_task_type_change)
+task2_btn.pack(anchor=W, pady=2)
+
+header_win = Label(left_frame, text="Введите необходимое количество камней из условия", 
+                  font=("Arial", 9), bg="white", fg="black")
+header_win.pack(anchor=W, pady=(10, 0))
+
+win_rocks = Entry(left_frame, font=("Arial", 10), width=8, fg="black")
+win_rocks.pack(anchor=W, pady=5)
+
+header_limit = Label(left_frame, text="Введите максимальный размер кучи (S)", 
+                    font=("Arial", 9), bg="white", fg="black")
+header_limit.pack(anchor=W, pady=(10, 0))
+
+heap_limit_entry = Entry(left_frame, font=("Arial", 10), width=8, fg="black")
+heap_limit_entry.pack(anchor=W, pady=5)
+
+right_frame = Frame(main_container, bg="white")
+right_frame.pack(side=LEFT, anchor=N)
+
+header_oper = Label(right_frame, text="Введите возможные операции (например //2)", 
+                   font=("Arial", 10), bg="white", fg="black")
+header_oper.pack(anchor=W)
+
+oper1 = Entry(right_frame, font=("Arial", 10), width=8, fg="black")
+oper1.pack(anchor=W, pady=5)
+oper2 = Entry(right_frame, font=("Arial", 10), width=8, fg="black")
+oper2.pack(anchor=W, pady=5)
+oper3 = Entry(right_frame, font=("Arial", 10), width=8, fg="black")
+oper3.pack(anchor=W, pady=5)
+
+bad_move_var = BooleanVar()
+bad_move_checkbox = Checkbutton(
+    right_frame, 
+    text="Неудачный ход Пети (для 19 задачи)", 
+    variable=bad_move_var,
+    bg="white", fg="black", selectcolor="white"
+)
+bad_move_checkbox.pack(anchor=W, pady=(10, 0))
+
+solve_button = Button(root, text="Решить", font=("Arial", 11, "bold"), 
+                     bg="lightblue", fg="black", command=lambda: show_answers())
+solve_button.pack(pady=10)
+
+answers_frame = None
+answers_label = None
+answer_labels = []
+solver = NONE
+
+def show_answers():
+    global answers_frame, answers_label, answer_labels
+    
+    if answers_frame is not None:
+        answers_frame.destroy()
+    
+    answers_frame = Frame(root, bg="white")
+    answers_frame.pack(fill=X, padx=20, pady=10)
+    
+    answers_label = Label(answers_frame, text="Ответы:", font=("Arial", 12, "bold"), 
+                         bg="white", fg="black")
+    answers_label.pack(anchor=W, pady=(0, 10))
+
+    answer_labels.clear()
+    
+    answers_texts = [
+        "Ответ 19: ...",
+        "Ответ 20: ...", 
+        "Ответ 21: ..."
+    ]
+    
+    for i, text in enumerate(answers_texts):
+        answer_label = Label(answers_frame, text=text, font=("Arial", 10), 
+                           bg="white", fg="black")
+        answer_label.pack(anchor=W, pady=2)
+        answer_labels.append(answer_label)
+    
+    try:
+        if get_type() == "1":
+            solver = Solver_1_Heap()
+        else:
+            solver = Solver_2_Heap()
+            solver.StartRocks = int(get_second_heap())
+
+        solver.WinRocks = int(get_win_rocks())
+        solver.Conditions = int(get_heap_size())
+        solver.Operations = get_operetions()
+        solver.BadMove = get_flag_bad_move()
+        task_19 = solver.solve_task_19()
+        task_20 = solver.solve_task_20()
+        task_21 = solver.solve_task_21()
+        calculate_answers(task_19, task_20, task_21)
+    except Exception as e:
+        for i, label in enumerate(answer_labels):
+            if i == 0:
+                label.config(text="Ошибка: Проверьте ввод данных")
+
+def get_type():
+    global task_type, task_1
+    if task_type.get() == task_1:
+        return "1"
+    else:
+        return "2"
+    
+def get_win_rocks():
+    global win_rocks
+    return win_rocks.get()
+
+def get_heap_size():
+    global heap_limit_entry
+    return heap_limit_entry.get()
+
+def get_second_heap():
+    global second_heap_entry
+    return second_heap_entry.get()
+
+def get_operetions():
+    global oper1, oper2, oper3
+    opers = []
+    if oper1.get() != "":
+        opers.append(oper1.get().strip())
+    if oper2.get() != "":
+        opers.append(oper2.get().strip())
+    if oper3.get() != "":
+        opers.append(oper3.get().strip())
+    return opers
+    
+def get_flag_bad_move():
+    global bad_move_var
+    return bad_move_var.get()
+
+def calculate_answers(task_19, task_20, task_21):
+    if answers_frame is not None:
+        task_20_str = ", ".join(str(x) for x in task_20) if isinstance(task_20, list) else str(task_20)
+        answers = [
+            f"Ответ 19: {task_19}",
+            f"Ответ 20: {task_20_str}", 
+            f"Ответ 21: {task_21}"
+        ]
+        for i, label in enumerate(answer_labels):
+            label.config(text=answers[i])
+
+root.mainloop()
